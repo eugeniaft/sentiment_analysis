@@ -1,7 +1,7 @@
 import requests
 from bs4 import BeautifulSoup
 from requests_oauthlib import OAuth1
-
+import re
 
 def auth_credentials(app_key,
                      app_secret,
@@ -17,7 +17,7 @@ def auth_credentials(app_key,
     return auth
 
 
-def tweet_query(q, n_tweets, lang, result_type):
+def tweet_query(q, n_tweets, lang, result_type, auth):
 
     # url from twitter API
     url_rest = "https://api.twitter.com/1.1/search/tweets.json"
