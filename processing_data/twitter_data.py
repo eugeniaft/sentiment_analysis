@@ -1,7 +1,8 @@
 import requests
-from bs4 import BeautifulSoup
 from requests_oauthlib import OAuth1
-import re
+import os
+import json
+
 
 def auth_credentials(app_key,
                      app_secret,
@@ -17,39 +18,69 @@ def auth_credentials(app_key,
     return auth
 
 
-def tweet_query(q, n_tweets, lang, result_type, auth):
+def tweet_query(q, n_tweets, until, lang, result_type, auth):
+    '''
+    possible values for result_type: mixed, recent, popular
+    '''
 
     # url from twitter API
     url_rest = "https://api.twitter.com/1.1/search/tweets.json"
-    params = {'q': q, 'count': n_tweets, 'lang': lang,  'result_type': result_type}
+    params = {'q': q, 'count': n_tweets, 'until':until, 'lang': lang,  'result_type': result_type}
     results = requests.get(url_rest, params=params, auth=auth)
 
     return results.json()
 
 
-def get_tweet_data(tweet):
+def save_tweet_data(path, filename, tweets):
+    with open(os.path.join(path, filename), 'w+') as f:
+        json.dump(tweets, f)
 
-    tweet_data = {}
 
-    tweet_data['tweet'] = BeautifulSoup(tweet['text'], "html.parser").get_text()
-    tweet_data['tweet_language'] = tweet['metadata']['iso_language_code']
-    tweet_data['source'] = re.search('rel="nofollow">(.*)</a>', tweet['source']).group(1)
-    tweet_data['geo'] = tweet['geo']
-    tweet_data['retweet_count'] = tweet['retweet_count']
-    tweet_data['favorite_count'] = tweet['favorite_count']
-    tweet_data['favorited'] = tweet['favorited']
-    tweet_data['retweeted'] = tweet['retweeted']
+def parse_tweet(tweet):
 
-    tweet_user = tweet['user']
-    tweet_data['user_id'] = tweet_user['id']
-    tweet_data['username'] = tweet_user['name']
-    tweet_data['user_screename'] = tweet_user['screen_name']
-    tweet_data['user_location'] = tweet_user['location']
-    tweet_data['followers_count'] = tweet_user['followers_count']
-    tweet_data['friends_count'] = tweet_user['friends_count']
-    tweet_data['listed_count'] = tweet_user['listed_count']
-    tweet_data['created_at'] = tweet_user['created_at']
-    tweet_data['statuses_count'] = tweet_user['statuses_count']
-    tweet_data['language'] = tweet_user['lang']
+    tvals = ['created_at',
+             'id_str',
+             'text',
+             'source',
+             'in_reply_to_status_id',
+             'in_reply_to_status_id_str',
+             'in_reply_to_user_id',
+             'in_reply_to_user_id_str',
+             'in_reply_to_screen_name',
+             'geo',
+             'coordinates',
+             'place',
+             'contributors',
+             'is_quote_status',
+             'retweet_count',
+             'favorite_count',
+             'favorited',
+             'retweeted',
+             'possibly_sensitive',
+             'lang'
+            ]
+    t_dt = {k: tweet[k] for k in tweet.keys() if k in tvals}
+    
+    e_dt = tweet['entities']
+    t_dt['hashtags'] = ';'.join([hs['text'] for hs in e_dt['hashtags']])
+    t_dt['user_mentions'] = ';'.join([um['screen_name'] for um in e_dt['user_mentions']])
+    t_dt['user_mentions_ids'] = ';'.join([umi['id_str'] for umi in e_dt['user_mentions']])
 
-    return tweet_data
+    user = ['id_str', 
+            'screen_name', 
+            'location', 
+            'description', 
+            'followers_count', 
+            'friends_count', 
+            'listed_count', 
+            'created_at', 
+            'verified']
+    u_dt = {'user_' + k: tweet['user'][k] for k in user}
+    t_dt.update(u_dt)
+    
+    return t_dt
+
+
+def get_tweet_data(tweets):
+    for tweet in tweets:
+        yield parse_tweet(tweet)  
